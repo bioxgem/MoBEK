@@ -67,7 +67,9 @@ print("AC : " + args.ac)
 input_dir_path = args.input_path
 
 
-resource_dir = Path(__file__).resolve().parents[1] / "resources" / "moieties"
+script_dir = Path(__file__).resolve().parent
+resource_dir = script_dir / "generate_feature" / "moieties"
+tool_dir = resource_dir
 pubchem_moieties = sorted((resource_dir / "pubchem").glob("*.mol"))
 inhouse_moieties = sorted((resource_dir / "inhouse").glob("*.mol"))
 ring_moieties = sorted((resource_dir / "rings_in_drugs").glob("*.mol"))
@@ -152,7 +154,7 @@ if args.input_format == 'smiles':
             
             checkmol_tmp_array = np.zeros(204)
 
-            result = subprocess.run(['./generate/checkmol', '-p', mol_path], stdout=subprocess.PIPE)
+            result = subprocess.run([str(tool_dir / 'checkmol'), '-p', mol_path], stdout=subprocess.PIPE)
             output_cm_lines = result.stdout.splitlines()
             check = 0
             for output_cm_line in output_cm_lines:
@@ -193,7 +195,7 @@ if args.input_format == 'smiles':
             
             ac_tmp_array = np.zeros(10)
 
-            result = subprocess.run(['./generate/mod_ac', mol_path], stdout=subprocess.PIPE)
+            result = subprocess.run([str(tool_dir / 'mod_ac'), mol_path], stdout=subprocess.PIPE)
             output_cm_lines = result.stdout.splitlines()
             # print(output_cm_lines)
             try: # AC 抓不到數字 不知為何有這個bug # 當compound 包含 離子的smiles時，會有問題 Ex: CCCCCCCCCCCCCCCC[N+](C)(C)C.[Br-]
@@ -213,7 +215,7 @@ if args.input_format == 'smiles':
 
             for index, moiety in enumerate(pubchem_moieties):
 
-                result = subprocess.run(['./generate/matchmol', moiety, mol_path], stdout=subprocess.PIPE)
+                result = subprocess.run([str(tool_dir / 'matchmol'), str(moiety), mol_path], stdout=subprocess.PIPE)
                 result = str(result.stdout)
 
                 if(result.find('T') != -1):
@@ -228,7 +230,7 @@ if args.input_format == 'smiles':
 
             for index, moiety in enumerate(inhouse_moieties):
 
-                result = subprocess.run(['./generate/matchmol', moiety, mol_path], stdout=subprocess.PIPE)
+                result = subprocess.run([str(tool_dir / 'matchmol'), str(moiety), mol_path], stdout=subprocess.PIPE)
                 result = str(result.stdout)
 
                 if(result.find('T') != -1):
@@ -243,7 +245,7 @@ if args.input_format == 'smiles':
 
             for index, moiety in enumerate(ring_moieties):
 
-                result = subprocess.run(['./generate/matchmol', moiety, mol_path], stdout=subprocess.PIPE)
+                result = subprocess.run([str(tool_dir / 'matchmol'), str(moiety), mol_path], stdout=subprocess.PIPE)
                 result = str(result.stdout)
 
                 if(result.find('T') != -1):

@@ -1,12 +1,12 @@
-# Integrating Drug-like Moieties and Binding Site Evolution for Kinase Inhibitor Prediction Using Ensemble Learning Models
+# Drug-Like Moieties and Binding-Site Evolution Enable Interpretable Kinase Inhibitor Prediction
 
-This repository contains the primary datasets, trained Random Forest model, feature-generation code, and analysis notebooks associated with our kinase inhibitor prediction study.
+This repository provides the datasets and source code associated with MoBEK, a kinase inhibitor prediction workflow that combines compound moiety descriptors with kinase binding-site evolution features.
 
-![Overview of the kinase inhibitor prediction framework](overview.png)
+![Overview of the MoBEK framework](overview.png)
 
-**Overview of the kinase inhibitor prediction framework.**
+**Overview of the MoBEK kinase inhibitor prediction framework.**
 
-## Project Structure
+## Repository Structure
 
 ```text
 .
@@ -15,89 +15,118 @@ This repository contains the primary datasets, trained Random Forest model, feat
 ├── data/
 │   ├── train.csv
 │   ├── test.csv
-│   └── validation.csv
-├── models/
-│   └── random_forest_model.joblib
-├── notebooks/
-│   ├── 01_protein_feature_generation.ipynb
-│   ├── 02_merge_compound_features.ipynb
-│   ├── 03_random_forest_example.ipynb
-│   └── 04_train_and_evaluate_model.ipynb
-├── src/
-│   └── feature_generate.py
-└── resources/
-    ├── protein/
-    │   └── KLIFS_85_feature_list.txt
-    └── moieties/
-        ├── pubchem/
-        ├── inhouse/
-        └── rings_in_drugs/
+│   ├── independent.csv
+│   └── inhouse_50x22.csv
+└── src/
+    ├── generate_compound_features.py
+    ├── generate_binding_site_features.py
+    ├── merge_features.py
+    ├── train_and_evaluate_random_forest.py
+    ├── train_evaluate_and_interpret_mobek.py
+    └── generate_feature/
+        ├── protein/
+        │   ├── Filter_BBA.csv
+        │   └── KLIFS_85_feature_list.txt
+        └── moieties/
+            ├── checkmol
+            ├── matchmol
+            ├── mod_ac
+            ├── inhouse/
+            ├── pubchem/
+            └── rings_in_drugs/
 ```
 
 ## Requirements
 
-- Python
+- Python 3
 - NumPy
 - pandas
 - scikit-learn
 - RDKit
 - Matplotlib
 - Seaborn
-- joblib
+- IPython
 - SHAP
-- Jupyter Notebook
+- Git LFS
 
-Some molecular-moiety features rely on external structure-matching tools that are not redistributed in this first release.
+The bundled `checkmol`, `matchmol`, and `mod_ac` executables are Linux x86-64 binaries used by the compound-feature generator.
 
-## Data
+## Datasets
 
 | File | Purpose | Records |
 | --- | --- | ---: |
 | `data/train.csv` | Model training set | 147,583 |
 | `data/test.csv` | Held-out test set | 36,911 |
-| `data/validation.csv` | Independent validation set | 57,383 |
+| `data/independent.csv` | Independent evaluation set | 57,383 |
+| `data/inhouse_50x22.csv` | In-house evaluation set comprising 50 compounds across 22 kinases | 1,100 |
 
-Each dataset contains 2,751 columns, including compound, kinase, label, molecular-feature, and binding-site-feature fields. The CSV files are configured for Git Large File Storage (Git LFS) through `.gitattributes`.
+Each CSV contains 2,751 columns: `smiles`, `kinase`, `label`, compound descriptors, and kinase binding-site features. The four datasets use the same column names and order.
 
-External-validation data is not included in this first release.
+The CSV files are stored with Git Large File Storage. After cloning the repository, retrieve them with:
 
-## Model
+```bash
+git lfs install
+git lfs pull
+```
 
-`models/random_forest_model.joblib` contains the trained Random Forest classifier used in this study. The corresponding training notebook uses 1,000 estimators with square-root feature sampling and no maximum-depth restriction.
+## Source Code
 
-The model file is configured for Git LFS through `.gitattributes`.
+### Feature generation
 
-## Code and Notebooks
+- `src/generate_compound_features.py` generates Checkmol, PubChem, in-house moiety, Rings in Drugs, ECFP, MACCS, and atom-count descriptors from SMILES.
+- `src/generate_binding_site_features.py` generates kinase binding-site evolution features from `Filter_BBA.csv` using the KLIFS 85-position definitions.
+- `src/merge_features.py` combines the generated Checkmol, PubChem, ring, atom-count, and ECFP tables and adds SMILES stereochemistry descriptors.
 
-- `src/feature_generate.py` generates compound features from SMILES input and reads molecular definitions from `resources/moieties/`.
-- `notebooks/01_protein_feature_generation.ipynb` records the binding-site feature-generation procedure.
-- `notebooks/02_merge_compound_features.ipynb` merges compound-feature representations.
-- `notebooks/03_random_forest_example.ipynb` demonstrates Random Forest training and evaluation.
-- `notebooks/04_train_and_evaluate_model.ipynb` contains the main model-training and evaluation workflow.
+Compound-feature generation and binding-site feature generation are independent procedures. The released datasets already contain the combined model features, so feature generation is not required before running the model scripts.
+
+### Model training, evaluation, and interpretation
+
+- `src/train_and_evaluate_random_forest.py` trains a Random Forest classifier and evaluates it on the held-out test and independent datasets.
+- `src/train_evaluate_and_interpret_mobek.py` contains the main MoBEK training, test, independent, in-house, feature-importance, and SHAP analysis workflow.
+
+A pretrained model is not included. Each model script trains its own Random Forest classifier from `data/train.csv`.
 
 ## Usage
 
-After obtaining the repository with Git LFS enabled, open the notebooks with Jupyter:
+Run commands from the repository root unless otherwise noted.
+
+### Generate compound features
+
+Prepare an input directory containing `compound_list.txt` with one SMILES string per line:
 
 ```bash
-cd notebooks
-jupyter notebook
+python src/generate_compound_features.py -p path/to/input_directory
 ```
 
-To inspect the trained model in Python:
+The default settings generate `checkmol.csv`, `pubchem.csv`, `ring.csv`, `ac.csv`, and `ecfp.csv` in the input directory. Use `-inhouse y` to additionally generate the optional in-house moiety representation.
 
-```python
-import joblib
+### Merge compound features
 
-model = joblib.load("models/random_forest_model.joblib")
+Run the merge script from the directory containing `checkmol.csv`, `pubchem.csv`, `ring.csv`, `ac.csv`, and `ecfp.csv`:
+
+```bash
+cd path/to/feature_directory
+python /path/to/MoBEK/src/merge_features.py
 ```
 
-Adjust the model path if Python is started from a different working directory.
+The output is written to `merge.csv` in the same directory.
 
-## Limitations
+### Generate binding-site features
 
-This first release preserves the principal datasets, trained model, and research workflow, but it is not intended as a complete end-to-end reproduction package.
+```bash
+python src/generate_binding_site_features.py
+```
 
-- External-validation data is not included pending confirmation.
-- The protein-feature notebook retains a historical `Filter_BBA.csv` input dependency that is not included in this release.
-- External feature-matching executables are not redistributed.
+The script reads the bundled protein resources and writes `protein_features.csv` to the current directory.
+
+### Train and evaluate the Random Forest model
+
+```bash
+python src/train_and_evaluate_random_forest.py
+```
+
+### Run the complete MoBEK analysis
+
+```bash
+python src/train_evaluate_and_interpret_mobek.py
+```

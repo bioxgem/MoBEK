@@ -1,2 +1,4 @@
-/data/*.csv filter=lfs diff=lfs merge=lfs -text
-/models/*.joblib filter=lfs diff=lfs merge=lfs -text
+/data/train.csv filter=lfs diff=lfs merge=lfs -text
+/data/test.csv filter=lfs diff=lfs merge=lfs -text
+/data/independent.csv filter=lfs diff=lfs merge=lfs -text
+/data/inhouse_50x22.csv filter=lfs diff=lfs merge=lfs -text

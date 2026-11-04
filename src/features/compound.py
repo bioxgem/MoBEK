@@ -145,14 +145,14 @@ def stereo_vector(smiles: str) -> np.ndarray:
                     first_m = 1
                 continue_m += 1
                 if continue_mm != 0:
-                    max_mm.append(continue_mm)
+                    max_mm.append(0 if continue_mm == 1 else continue_mm)
                     continue_mm = 0
             elif nxt == '@':
                 if first_m == 0:
                     first_mm = 1
                 continue_mm += 1
                 if continue_m != 0:
-                    max_m.append(continue_m)
+                    max_m.append(0 if continue_m == 1 else continue_m)
                     continue_m = 0
     max_m.append(0 if continue_m == 1 else continue_m)
     max_mm.append(0 if continue_mm == 1 else continue_mm)

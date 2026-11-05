@@ -24,7 +24,7 @@ Project Structure Resolution:
 from __future__ import annotations
 
 import argparse
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 import sys
 
@@ -66,6 +66,10 @@ def get_full_feature_column_names() -> list[str]:
     return compound_cols + protein_cols
 
 
+def _feat_smi_worker(smi: str, bin_dir: Path, moiety_dir: Path) -> tuple[str, np.ndarray | None]:
+    return smi, featurize_smiles(smi, bin_dir=bin_dir, moiety_dir=moiety_dir, n_threads=1)
+
+
 def featurize_dataset(
     df: pd.DataFrame,
     smiles_col: str = "smiles",
@@ -89,13 +93,13 @@ def featurize_dataset(
     print("Featurizing unique SMILES...")
     smiles_cache: dict[str, np.ndarray | None] = {}
 
-    def _feat_smi(smi: str):
-        return smi, featurize_smiles(
-            smi, bin_dir=bin_dir, moiety_dir=moiety_dir, n_threads=1
-        )
-
-    with ThreadPoolExecutor(max_workers=n_jobs) as ex:
-        for smi, vec in tqdm(ex.map(_feat_smi, unique_smiles), total=len(unique_smiles)):
+    with ProcessPoolExecutor(max_workers=n_jobs) as ex:
+        n = len(unique_smiles)
+        for smi, vec in tqdm(
+            ex.map(_feat_smi_worker, unique_smiles,
+                       [bin_dir] * n,
+                       [moiety_dir] * n),
+            total=len(unique_smiles)):
             smiles_cache[smi] = vec
 
     # 2. Featurize unique Kinases

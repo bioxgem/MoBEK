@@ -3,7 +3,7 @@ Random Forest, exact v1-v11 hyperparameters).
 
 Usage:
   python scripts/train_model.py --data data/final/train_deduplicated.csv \
-      --out results/trained/full_train [--bootstrap 0]
+      --out-dir results/trained/full_train [--bootstrap 0]
 
 Bootstrap setting (--bootstrap, default 0):
   0   -> ONE model trained on the FULL data file (no resampling)
@@ -11,7 +11,7 @@ Bootstrap setting (--bootstrap, default 0):
          b=1..B-1 resample rows with RandomState(seed + b)
          (the v5-v11 convention)
 
-Output (in --out):
+Output (in --out-dir):
   model_b0.joblib, [model_b1.joblib, ...]   (joblib-dumped RFs)
   run_config.json                            (provenance)
 
@@ -37,7 +37,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--data", required=True,
                     help="CSV with smiles,kinase,label + 1,048+1,700 features")
-    ap.add_argument("--out", required=True, help="output directory")
+    ap.add_argument("--out-dir", required=True, help="output directory")
     ap.add_argument("--bootstrap", type=int, default=0,
                     help="0 = one full-data model (default); B>0 = B "
                          "bootstrap replicates (b=0 strict, seeds "
@@ -50,7 +50,7 @@ def main():
 
     if args.bootstrap < 0:
         ap.error("--bootstrap must be >= 0")
-    out = Path(args.out)
+    out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
     t0 = time.time()

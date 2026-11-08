@@ -10,30 +10,44 @@ This repository provides the datasets and source code associated with MoBEK, a k
 
 ```text
 .
-├── README.md
+├── environment.yml
 ├── overview.png
-├── data/
-│   ├── train.csv
-│   ├── test.csv
-│   ├── independent.csv
-│   └── inhouse_50x22.csv
-└── src/
-    ├── generate_compound_features.py
-    ├── generate_binding_site_features.py
-    ├── merge_features.py
-    ├── train_and_evaluate_random_forest.py
-    ├── train_evaluate_and_interpret_mobek.py
-    └── generate_feature/
-        ├── protein/
-        │   ├── Filter_BBA.csv
-        │   └── KLIFS_85_feature_list.txt
-        └── moieties/
-            ├── checkmol
-            ├── matchmol
-            ├── mod_ac
-            ├── inhouse/
-            ├── pubchem/
-            └── rings_in_drugs/
+├── README.md
+├── data
+│   ├── independent.csv
+│   ├── inhouse.csv
+│   ├── test.csv
+│   ├── train.csv
+├── scripts
+│   ├── ablation_study.py
+│   ├── build_dataset_features.py
+│   ├── evaluate_model.py
+│   ├── interpret_model.py
+│   └── train_model.py
+└── src
+    ├── ablation.py
+    ├── interpret.py
+    ├── metrics.py
+    ├── model.py
+    └── features
+        ├── compound.py
+        ├── Filter_BBA.csv
+        ├── protein.py
+        └── vendors
+            ├── ac
+            │   ├── Composition.cpp
+            │   ├── Composition.h
+            │   ├── Compound.h
+            │   ├── Edge.h
+            │   ├── Makefile
+            │   └── String.h
+            ├── bin
+            │   ├── checkmol
+            │   ├── matchmol
+            │   └── mod_ac
+            └── moieties
+                ├── pubchem/
+                └── rings_in_drugs/
 ```
 
 ## Requirements
@@ -44,89 +58,114 @@ This repository provides the datasets and source code associated with MoBEK, a k
 - scikit-learn
 - RDKit
 - Matplotlib
-- Seaborn
-- IPython
 - SHAP
-- Git LFS
 
 The bundled `checkmol`, `matchmol`, and `mod_ac` executables are Linux x86-64 binaries used by the compound-feature generator.
 
+`checkmol` and `matchmol` can be downloaded from [link](https://homepage.univie.ac.at/norbert.haider/download/chemistry/checkmol/bin/?order=name&sort=desc) (version 0.5b N. Haider, University of Vienna, 2003–2018)  
+
+`mod_ac` are inhouse tool to count amino acid composition, source code are provided in `src/features/vendors/ac/`. Using `g++` and `make` should compile it.
+
+```bash
+cd src/features/vendors/ac/
+make
+```
+
+### Conda
+
+To easier replicate the environment, `conda` could be used:
+
+```bash
+conda env create -f environment.yml -y
+conda activate MoBEK
+```
+
 ## Datasets
+
+### Raw dataset
 
 | File | Purpose | Records |
 | --- | --- | ---: |
-| `data/train.csv` | Model training set | 147,583 |
-| `data/test.csv` | Held-out test set | 36,911 |
-| `data/independent.csv` | Independent evaluation set | 57,383 |
-| `data/inhouse_50x22.csv` | In-house evaluation set comprising 50 compounds across 22 kinases | 1,100 |
+| `data/train.csv` | Model training set | 147,578 |
+| `data/test.csv` | Held-out test set | 36,909 |
+| `data/independent.csv` | Independent evaluation set | 57,244 |
+| `data/inhouse.csv` | In-house evaluation set comprising 50 compounds across 22 kinases | 1,100 |
 
-Each CSV contains 2,751 columns: `smiles`, `kinase`, `label`, compound descriptors, and kinase binding-site features. The four datasets use the same column names and order.
+Each CSV contains 3 columns: `smiles`, `kinase`, `label`.
 
-The CSV files are stored with Git Large File Storage. After cloning the repository, retrieve them with:
+### Processed dataset
+
+The above raw datasets are processed with `scripts/build_dataset_features.py` to generate the 1048 bits compound descriptors and 1700 bits kinase binding-site features.
+
+The CSV files are stored in `full_features.tar.gz`, to get them:
 
 ```bash
-git lfs install
-git lfs pull
+cd data
+tar zxvf full_features.tar.gz
 ```
 
 ## Source Code
 
-### Feature generation
+### Feature
 
-- `src/generate_compound_features.py` generates Checkmol, PubChem, in-house moiety, Rings in Drugs, ECFP, MACCS, and atom-count descriptors from SMILES.
-- `src/generate_binding_site_features.py` generates kinase binding-site evolution features from `Filter_BBA.csv` using the KLIFS 85-position definitions.
-- `src/merge_features.py` combines the generated Checkmol, PubChem, ring, atom-count, and ECFP tables and adds SMILES stereochemistry descriptors.
-
-Compound-feature generation and binding-site feature generation are independent procedures. The released datasets already contain the combined model features, so feature generation is not required before running the model scripts.
+- `src/features/compound.py` generates Checkmol, PubChem, in-house moiety, Rings in Drugs, ECFP, MACCS, and atom-count descriptors from SMILES.
+- `src/features/protein.py` generates kinase binding-site evolution features from `Filter_BBA.csv` using the KLIFS 85-position definitions.
 
 ### Model training, evaluation, and interpretation
 
-- `src/train_and_evaluate_random_forest.py` trains a Random Forest classifier and evaluates it on the held-out test and independent datasets.
-- `src/train_evaluate_and_interpret_mobek.py` contains the main MoBEK training, test, independent, in-house, feature-importance, and SHAP analysis workflow.
+- `src/model.py` Define a Random Forest classifier.
+- `src/metrics.py` Define metrics and evaluates model on the held-out test and independent datasets.
+- `src/interpret.py` contains the MoBEK feature-importance, and SHAP analysis workflow.
 
-A pretrained model is not included. Each model script trains its own Random Forest classifier from `data/train.csv`.
+A pretrained model is not included. Each model script trains its own Random Forest classifier from `data/train_full_features.csv`.
 
 ## Usage
 
 Run commands from the repository root unless otherwise noted.
 
-### Generate compound features
-
-Prepare an input directory containing `compound_list.txt` with one SMILES string per line:
+Each script under `scripts/` could be run with `--help` to get the help message. This section provides minimum argument needed for MoBEK.
 
 ```bash
-python src/generate_compound_features.py -p path/to/input_directory
+python scripts/build_dataset_features.py --help
 ```
 
-The default settings generate `checkmol.csv`, `pubchem.csv`, `ring.csv`, `ac.csv`, and `ecfp.csv` in the input directory. Use `-inhouse y` to additionally generate the optional in-house moiety representation.
+### Feature generation
 
-### Merge compound features
-
-Run the merge script from the directory containing `checkmol.csv`, `pubchem.csv`, `ring.csv`, `ac.csv`, and `ecfp.csv`:
+To generate features for both compound (1048 bits) and kinase binding-site (1700 bits):
 
 ```bash
-cd path/to/feature_directory
-python /path/to/MoBEK/src/merge_features.py
+python scripts/build_dataset_features.py data/train.csv
 ```
 
-The output is written to `merge.csv` in the same directory.
+The result will be save as `{input_file_basename}_full_features.csv`.  
+The pre-computed dataset with full features included in `data/full_features.tar.gz`
 
-### Generate binding-site features
+### Model training, evaluation, and interpretation
+
+To train a model, run:
 
 ```bash
-python src/generate_binding_site_features.py
+python scripts/train_model.py \
+    --data data/train_full_features.csv \
+    --out-dir output
 ```
 
-The script reads the bundled protein resources and writes `protein_features.csv` to the current directory.
+The result model will be saved in `output/model_b0.joblib`.
 
-### Train and evaluate the Random Forest model
+To evaluate the model on the eval set (test/indepedent/inhouse), run:
 
 ```bash
-python src/train_and_evaluate_random_forest.py
+python scripts/evaluate_model.py \
+    --model output/model_b0.joblib \
+    --data data/test_full_features.csv \
+    --out output/eval_test.csv
 ```
 
-### Run the complete MoBEK analysis
+To analyse the model with SHAP, run:
 
 ```bash
-python src/train_evaluate_and_interpret_mobek.py
+python scripts/interpret_model.py \
+    --model output/model_b0.joblib \
+    --data data/train_full_features.csv \
+    --out-dir output
 ```
